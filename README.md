@@ -1,0 +1,1 @@
+# sincronizador-de-caixinhas
