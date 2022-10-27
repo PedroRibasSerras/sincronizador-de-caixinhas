@@ -13,6 +13,8 @@ typedef struct{
 void *listenInput(void* caixinhaP);
 void enviaUltimoComandoDeMultimidia(int socket);
 
+struct sockaddr_in	 udpaddr;
+int udpSock;
 Caixinha caixinhas[10];
 struct sockaddr_in address;
 int addrlen;
@@ -21,6 +23,32 @@ pthread_t waiter;
 char buffer[1024];
 char ultimoComando[10];
 int perguntouSeEstaPronto;
+
+int criaUdp(){
+	int sockfd;
+    int yes = 1;
+	
+	// Creating socket file descriptor
+	if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+		perror("socket creation failed");
+		exit(EXIT_FAILURE);
+	}
+
+    int ret = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char*)&yes, sizeof(yes));
+    if (ret == -1) {
+        perror("setsockopt error");
+        return 0;
+    }
+	
+	memset(&udpaddr, 0, sizeof(udpaddr));
+		
+	// Filling server information
+	udpaddr.sin_family = AF_INET; // IPv4
+	udpaddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+	udpaddr.sin_port = htons(PORT+1);
+		
+	return sockfd;
+}
 
 int verificaSeCaixinhasEstaoProntas(){
 	for(int i = 0; i < N_CAIXINHAS; i ++){
@@ -36,11 +64,12 @@ int verificaSeCaixinhasEstaoProntas(){
 }
 
 void enviaUltimoComandoDeMultimidiaParaTodasCaixinhas(){
-	for(int i = 0; i < N_CAIXINHAS; i ++){
-		if(caixinhas[i].n != -1){
-			enviaUltimoComandoDeMultimidia(caixinhas[i].socket);
-		}
-	}
+	BYTE* packet = encode(CONTROLE_DE_MULTIMIDIA_COMANDO, ultimoComando);
+	printPacket(packet);
+	printf("Envia udp!");
+	sendto(udpSock, packet, byteArraySize(packet),
+		MSG_CONFIRM, (const struct sockaddr *) &udpaddr,
+			sizeof(udpaddr));
 }
 
 void * esperaCaixinha(void * nullParam){
@@ -233,6 +262,7 @@ int main(int argc, char const* argv[])
 	
 	pthread_create(&waiter, NULL, esperaCaixinha, NULL);
 
+	udpSock = criaUdp();
 	
 
 	int estaLigado = TRUE;

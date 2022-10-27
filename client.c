@@ -10,7 +10,7 @@
 
 
 int sock;
-pthread_t reader, playListner, downloader;
+pthread_t reader, playListner, downloader, udpWaiter;
 libvlc_instance_t *vlc;
 int playerControllerState[1];
 pthread_mutex_t downloadsEmAndamentoMutex;
@@ -24,6 +24,94 @@ void playMusica(MusicaPlayer *);
 void pauseMusica(MusicaPlayer *);
 void handleReadyQuestion();
 void readyResponse();
+void* downloadMusica(void*);
+
+void* esperaComandoUdp(void * nullP){
+    int sockUDP;
+	char buffer[1024];
+	char *hello = "Hello from server";
+	struct sockaddr_in servaddr, cliaddr;
+		
+	// Creating socket file descriptor
+	if ( (sockUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+		perror("socket creation failed");
+		exit(EXIT_FAILURE);
+	}
+		
+	memset(&servaddr, 0, sizeof(servaddr));
+	memset(&cliaddr, 0, sizeof(cliaddr));
+		
+	// Filling server information
+	servaddr.sin_family = AF_INET; // IPv4
+	servaddr.sin_addr.s_addr = INADDR_ANY;
+	servaddr.sin_port = htons(PORT+1);
+		
+	// Bind the socket with the server address
+	if ( bind(sockUDP, (const struct sockaddr *)&servaddr,
+			sizeof(servaddr)) < 0 )
+	{
+		perror("bind failed");
+		exit(EXIT_FAILURE);
+	}
+
+    printf("UDPCriado");
+		
+	int len, n;
+	
+	len = sizeof(cliaddr); //len is value/result
+	
+	
+	
+    while(1){
+        printf("Esperando broadcast udp!");
+        n = recvfrom(sockUDP, (char *)buffer, 1024,
+				MSG_WAITALL, ( struct sockaddr *) &cliaddr,
+				&len);
+	    buffer[n] = '\0';
+
+        printPacket((BYTE*)buffer);
+        Linha_de_comando* lc =  decode((BYTE*)buffer);
+        
+        switch(lc->command){
+            case VERIFICACAO_DE_CAIXA_COMANDO:{
+                if(strcmp(lc->option,READYQ_C_OPCAO) == 0){
+                    handleReadyQuestion();
+                }
+            }break;
+            case DOWNLOAD_MULTIMIDIA_COMANDO:{
+                MusicaPlayer *p = (MusicaPlayer *) malloc(sizeof(MusicaPlayer));
+                p->mp=NULL;
+                appendLista(filaDeMusicas,*p);
+                pthread_create(&downloader, NULL, downloadMusica, lc->option);
+            }break;
+            case CONTROLE_DE_MULTIMIDIA_COMANDO:{
+                if(strcmp(lc->option,PLAY_C_OPCAO)==0){
+                    MusicaPlayer *p = (getIndexLista(filaDeMusicas,indexMusicaAtual));
+                    playMusica(p);
+                }else
+                if(strcmp(lc->option,PAUSE_C_OPCAO)==0){
+                    MusicaPlayer *p = (getIndexLista(filaDeMusicas,indexMusicaAtual));
+                    pauseMusica(p);
+                }else
+                if(strcmp(lc->option,NEXT_C_OPCAO)==0){
+                    printf("testeoutnext\n");
+                    nextMusica(TRUE);
+                }else
+                if(strcmp(lc->option,PREV_C_OPCAO)==0){
+                    prevMusic();
+                }
+
+            }break;
+            default:{
+                sleep(1);
+                printf("Estado de espera");
+            }break;
+        }
+    
+    }
+		
+	return NULL;
+}
 
 
 void *esperaAcabar(void* mp){
@@ -321,6 +409,8 @@ int main(int argc, char const* argv[])
     }
 
     int sair = FALSE;
+    pthread_create(&udpWaiter, NULL, esperaComandoUdp, NULL);
+
     while (!sair)
     {
         printListaMP(filaDeMusicas);
