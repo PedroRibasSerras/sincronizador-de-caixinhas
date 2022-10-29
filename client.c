@@ -17,10 +17,13 @@ pthread_mutex_t downloadsEmAndamentoMutex;
 int nDownloadsEmAndamento, readyRequest;
 Lista filaDeMusicas;
 int indexMusicaAtual;
-int n_caixa;
+char n_caixa[2];
+struct sockaddr_in servaddr, cliaddr;
+int sockUDP;
 
 void nextMusica(int);
 void prevMusic();
+void resetMusic();
 void playMusica(MusicaPlayer *);
 void pauseMusica(MusicaPlayer *);
 void handleReadyQuestion();
@@ -28,10 +31,8 @@ void readyResponse();
 void* downloadMusica(void*);
 
 void* esperaComandoUdp(void * nullP){
-    int sockUDP;
 	char buffer[1024];
 	char *hello = "Hello from server";
-	struct sockaddr_in servaddr, cliaddr;
 		
 	// Creating socket file descriptor
 	if ( (sockUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
@@ -100,6 +101,9 @@ void* esperaComandoUdp(void * nullP){
                 }else
                 if(strcmp(lc->option,PREV_C_OPCAO)==0){
                     prevMusic();
+                }else
+                if(strcmp(lc->option,RESET_C_OPCAO)==0){
+                    resetMusic();
                 }
 
             }break;
@@ -148,6 +152,10 @@ void playMusica(MusicaPlayer * player){
     
     if(player->mp == NULL)
         return;
+
+    sendto(sockUDP, (const char *)n_caixa, strlen(n_caixa),
+		MSG_CONFIRM, (const struct sockaddr *) &cliaddr,
+			sizeof(cliaddr));
 
     printf("Play:%s\n",player->nome);
     *playerControllerState = PLAY;
@@ -212,6 +220,21 @@ void prevMusic(){
         printf("Passou dos 5 seg\n");
     }
 }
+
+void resetMusic(){
+    MusicaPlayer *atual = getIndexLista(filaDeMusicas,indexMusicaAtual);
+    if(atual == NULL){
+        return;
+    }
+
+    if(atual->mp == NULL)
+        return;
+
+    pauseMusica(atual);
+    libvlc_media_player_set_time(atual->mp,0); 
+    handleReadyQuestion();   
+}
+
 
 void handleReadyQuestion(){
     MusicaPlayer *p = getIndexLista(filaDeMusicas,indexMusicaAtual);
@@ -422,8 +445,9 @@ int main(int argc, char const* argv[])
         
         switch(lc->command){
             case IDENTIFICACAO_CAIXA_COMANDO:{
-                n_caixa =  buffer[0];
-                printf("Codigo de identificacao da caixa: %d\n", n_caixa );
+                n_caixa[0] =  lc->option[0];
+                n_caixa[1] = '\0';
+                printf("Codigo de identificacao da caixa: %d\n", n_caixa[0] );
             } break;
             case VERIFICACAO_DE_CAIXA_COMANDO:{
                 if(strcmp(lc->option,READYQ_C_OPCAO) == 0){

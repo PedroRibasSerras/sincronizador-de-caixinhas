@@ -35,6 +35,7 @@
 #define	PAUSE_C_OPCAO			"PAUSE"					//0x07		Multimidia control
 #define	NEXT_C_OPCAO			"NEXT"					//0x07		Multimidia control
 #define	PREV_C_OPCAO			"PREV"					//0x07		Multimidia control
+#define	RESET_C_OPCAO			"RESET"					//0x07		Multimidia control
 #define	ENDED_C_OPCAO			"ENDED"					//0x07		Multimidia control
 #define	PAUSE_OK_C_OPCAO		"PAUSE OK"				//0x07		Multimidia control
 

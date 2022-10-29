@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #define N_CAIXINHAS 10
+#define LIMIAR 1000
 
 typedef struct{
 	int n;
@@ -13,6 +14,7 @@ typedef struct{
 
 void *listenInput(void* caixinhaP);
 void enviaUltimoComandoDeMultimidia(int socket);
+void enviaUltimoComandoDeMultimidiaParaTodasCaixinhas();
 
 struct sockaddr_in	 udpaddr;
 int udpSock;
@@ -20,16 +22,37 @@ Caixinha caixinhas[N_CAIXINHAS];
 struct sockaddr_in address;
 int addrlen;
 int server_fd;
-pthread_t waiter;
+pthread_t waiter,udpWaiter;
 char buffer[1024];
 char ultimoComando[10];
 int perguntouSeEstaPronto;
 int nUdpCaixinha;
 struct timeval startBroadcast, broadcastResponse[N_CAIXINHAS];
 int rn_caixinhas = 0;
+int syncNum = 0;
+
+long unsigned int calcBroadcastTempo(int n_caixinha){
+	return (broadcastResponse[buffer[n_caixinha]].tv_sec - startBroadcast.tv_sec) * 1000000 + broadcastResponse[n_caixinha].tv_usec - startBroadcast.tv_usec;
+}
 
 int verificaErroSincronia(){
-	return 1;
+	syncNum--;
+	int max = broadcastResponse[0].tv_sec - startBroadcast.tv_sec;
+	int min =  broadcastResponse[0].tv_sec - startBroadcast.tv_sec;
+	if(syncNum == 0){
+		for(int i = 1; i < N_CAIXINHAS; i++){
+			if(caixinhas[i].n == -1){
+				long unsigned int tempoCaixinha  = calcBroadcastTempo(i);
+				if(max < tempoCaixinha)
+					max = tempoCaixinha;
+				else if(min > tempoCaixinha)
+					min = tempoCaixinha;
+			}
+		}
+		if(max - min > LIMIAR)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 
@@ -42,13 +65,12 @@ void *teste(void * nullP){
 					0, (struct sockaddr *) &udpaddr,
 					&lenUdpaddr);
 
-		gettimeofday(&broadcastResponse[buffer[0]], NULL);
+	gettimeofday(&broadcastResponse[buffer[0]], NULL);
+	printf("%d - took %lu us\n",buffer[0], (broadcastResponse[buffer[0]].tv_sec - startBroadcast.tv_sec) * 1000000 + broadcastResponse[buffer[0]].tv_usec - startBroadcast.tv_usec);
 		if(verificaErroSincronia()){
-			buffer[0] = 1;
-			buffer[1] = '\0';
-			sendto(udpSock, (char *)buffer, byteArraySize(buffer),
-			MSG_CONFIRM, (const struct sockaddr *) &udpaddr,
-				sizeof(udpaddr));
+			strcpy(ultimoComando,RESET_C_OPCAO);
+			enviaUltimoComandoDeMultimidiaParaTodasCaixinhas();
+			strcpy(ultimoComando,PLAY_C_OPCAO);
 		}
 	}
 }
@@ -93,6 +115,7 @@ int verificaSeCaixinhasEstaoProntas(){
 }
 
 void enviaUltimoComandoDeMultimidiaParaTodasCaixinhas(){
+	syncNum = rn_caixinhas;
 	BYTE* packet = encode(CONTROLE_DE_MULTIMIDIA_COMANDO, ultimoComando);
 	printPacket(packet);
 	printf("Envia udp!");
@@ -295,6 +318,7 @@ int main(int argc, char const* argv[])
 
 	
 	pthread_create(&waiter, NULL, esperaCaixinha, NULL);
+	pthread_create(&udpWaiter, NULL, teste, NULL);
 
 	udpSock = criaUdp();
 	
