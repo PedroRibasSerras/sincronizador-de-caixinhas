@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 	
@@ -13,6 +14,11 @@
 	
 // Driver code
 int main() {
+	struct timeval stop[2], start[2];
+	
+	
+	
+
 	int sockfd;
     int yes = 1;
 	char buffer[MAXLINE];
@@ -39,17 +45,21 @@ int main() {
 	servaddr.sin_port = htons(PORT);
 		
 	int n, len;
+	while(1){
+		gettimeofday(&start[0], NULL);
+		sendto(sockfd, (const char *)hello, strlen(hello),
+			0, (const struct sockaddr *) &servaddr,
+				sizeof(servaddr));			
+		n = recvfrom(sockfd, (char *)buffer, MAXLINE,
+					0, (struct sockaddr *) &servaddr,
+					&len);
+		gettimeofday(&stop[0], NULL);
+
 		
-	sendto(sockfd, (const char *)hello, strlen(hello),
-		MSG_CONFIRM, (const struct sockaddr *) &servaddr,
-			sizeof(servaddr));
-	printf("Hello message sent.\n");
-			
-	n = recvfrom(sockfd, (char *)buffer, MAXLINE,
-				MSG_WAITALL, (struct sockaddr *) &servaddr,
-				&len);
-	buffer[n] = '\0';
-	printf("Server : %s\n", buffer);
+		printf("1 - took %lu us\n", (stop[0].tv_sec - start[0].tv_sec) * 1000000 + stop[0].tv_usec - start[0].tv_usec);
+		
+	}
+
 	
 	close(sockfd);
 	return 0;
