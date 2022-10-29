@@ -17,6 +17,7 @@ pthread_mutex_t downloadsEmAndamentoMutex;
 int nDownloadsEmAndamento, readyRequest;
 Lista filaDeMusicas;
 int indexMusicaAtual;
+int n_caixa;
 
 void nextMusica(int);
 void prevMusic();
@@ -382,6 +383,7 @@ int main(int argc, char const* argv[])
     filaDeMusicas = criaLista();
     nDownloadsEmAndamento = 0;
     readyRequest = FALSE;
+    
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("\n Socket creation error \n");
@@ -410,7 +412,6 @@ int main(int argc, char const* argv[])
 
     int sair = FALSE;
     pthread_create(&udpWaiter, NULL, esperaComandoUdp, NULL);
-
     while (!sair)
     {
         printListaMP(filaDeMusicas);
@@ -420,6 +421,10 @@ int main(int argc, char const* argv[])
         Linha_de_comando* lc =  decode((BYTE*)buffer);
         
         switch(lc->command){
+            case IDENTIFICACAO_CAIXA_COMANDO:{
+                n_caixa =  buffer[0];
+                printf("Codigo de identificacao da caixa: %d\n", n_caixa );
+            } break;
             case VERIFICACAO_DE_CAIXA_COMANDO:{
                 if(strcmp(lc->option,READYQ_C_OPCAO) == 0){
                     handleReadyQuestion();

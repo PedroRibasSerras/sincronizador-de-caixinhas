@@ -1,5 +1,6 @@
 #include "protocolo.c"
 #include <pthread.h>
+#include <sys/time.h>
 
 #define N_CAIXINHAS 10
 
@@ -15,7 +16,7 @@ void enviaUltimoComandoDeMultimidia(int socket);
 
 struct sockaddr_in	 udpaddr;
 int udpSock;
-Caixinha caixinhas[10];
+Caixinha caixinhas[N_CAIXINHAS];
 struct sockaddr_in address;
 int addrlen;
 int server_fd;
@@ -23,6 +24,34 @@ pthread_t waiter;
 char buffer[1024];
 char ultimoComando[10];
 int perguntouSeEstaPronto;
+int nUdpCaixinha;
+struct timeval startBroadcast, broadcastResponse[N_CAIXINHAS];
+int rn_caixinhas = 0;
+
+int verificaErroSincronia(){
+	return 1;
+}
+
+
+void *teste(void * nullP){
+	char buffer[1024];
+
+	int lenUdpaddr = sizeof(udpaddr);
+	while(1){
+	int n = recvfrom(udpSock, (char *)buffer, 1024,
+					0, (struct sockaddr *) &udpaddr,
+					&lenUdpaddr);
+
+		gettimeofday(&broadcastResponse[buffer[0]], NULL);
+		if(verificaErroSincronia()){
+			buffer[0] = 1;
+			buffer[1] = '\0';
+			sendto(udpSock, (char *)buffer, byteArraySize(buffer),
+			MSG_CONFIRM, (const struct sockaddr *) &udpaddr,
+				sizeof(udpaddr));
+		}
+	}
+}
 
 int criaUdp(){
 	int sockfd;
@@ -82,8 +111,12 @@ void * esperaCaixinha(void * nullParam){
 				perror("accept\n");
 				exit(EXIT_FAILURE);
 			}
-
-
+		char n_caixa[2];
+		n_caixa[0] = rn_caixinhas;
+		n_caixa[1] = '\0'; 
+		BYTE* packet = encode(IDENTIFICACAO_CAIXA_COMANDO, n_caixa);
+		rn_caixinhas++;
+		send(new_socket, packet, byteArraySize(packet), 0);
 		for(int i = 0; i < N_CAIXINHAS; i++){
 			if(caixinhas[i].n == -1){
 				caixinhas[i].n = i;
@@ -121,6 +154,7 @@ void *listenInput(void* caixinhaP){
 				if(strcmp(lc->option,READYR_C_OPCAO) == 0){
 					(*caixinha).ready = TRUE;
 					if(verificaSeCaixinhasEstaoProntas()){
+						gettimeofday(&startBroadcast, NULL);
 						perguntouSeEstaPronto = FALSE;
 						enviaUltimoComandoDeMultimidiaParaTodasCaixinhas();
 					}

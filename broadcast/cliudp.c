@@ -55,8 +55,13 @@ int main() {
 					&len);
 		gettimeofday(&stop[0], NULL);
 
+		n = recvfrom(sockfd, (char *)buffer, MAXLINE,
+					0, (struct sockaddr *) &servaddr,
+					&len);
+		gettimeofday(&stop[1], NULL);
 		
 		printf("1 - took %lu us\n", (stop[0].tv_sec - start[0].tv_sec) * 1000000 + stop[0].tv_usec - start[0].tv_usec);
+		printf("1 - took %lu us\n", (stop[1].tv_sec - start[0].tv_sec) * 1000000 + stop[1].tv_usec - start[0].tv_usec);
 		
 	}
 

@@ -14,6 +14,7 @@
 #define TRUE 			1
 
 //COMANDOS										<Comando>	Categoria
+#define	IDENTIFICACAO_CAIXA_COMANDO				0x01		//Identificacao da caixa(numero)
 #define	VERIFICACAO_DE_CAIXA_COMANDO			0x03		//Verificação de caixa
 #define	CONTROLE_DE_MULTIMIDIA_COMANDO			0x07		//Multimidia control
 #define	DOWNLOAD_MULTIMIDIA_COMANDO			    0x08		//Multimidia DOWNLOAD
