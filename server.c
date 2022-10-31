@@ -3,7 +3,7 @@
 #include <sys/time.h>
 
 #define N_CAIXINHAS 10
-#define LIMIAR 1000
+#define LIMIAR 10000
 
 typedef struct{
 	int n;
@@ -30,18 +30,22 @@ int nUdpCaixinha;
 struct timeval startBroadcast, broadcastResponse[N_CAIXINHAS];
 int rn_caixinhas = 0;
 int syncNum = 0;
+pthread_mutex_t syncLock;
 
 long unsigned int calcBroadcastTempo(int n_caixinha){
 	return (broadcastResponse[buffer[n_caixinha]].tv_sec - startBroadcast.tv_sec) * 1000000 + broadcastResponse[n_caixinha].tv_usec - startBroadcast.tv_usec;
 }
 
 int verificaErroSincronia(){
+	pthread_mutex_lock(&syncLock);
 	syncNum--;
-	int max = broadcastResponse[0].tv_sec - startBroadcast.tv_sec;
-	int min =  broadcastResponse[0].tv_sec - startBroadcast.tv_sec;
+	printf("verificaErrorSincronia\n");
 	if(syncNum == 0){
+		printf("vai verificar o erro\n");
+		long unsigned int max = calcBroadcastTempo(0);
+		long unsigned int min =  max;
 		for(int i = 1; i < N_CAIXINHAS; i++){
-			if(caixinhas[i].n == -1){
+			if(caixinhas[i].n != -1){
 				long unsigned int tempoCaixinha  = calcBroadcastTempo(i);
 				if(max < tempoCaixinha)
 					max = tempoCaixinha;
@@ -49,9 +53,13 @@ int verificaErroSincronia(){
 					min = tempoCaixinha;
 			}
 		}
-		if(max - min > LIMIAR)
+		printf("max: %lu, min: %lu e limiar_real: %lu\n", max, min, max-min);
+		if(max - min > LIMIAR){
+			pthread_mutex_unlock(&syncLock);
 			return TRUE;
+		}
 	}
+	pthread_mutex_unlock(&syncLock);
 	return FALSE;
 }
 
@@ -62,7 +70,7 @@ void *teste(void * nullP){
 	int lenUdpaddr = sizeof(udpaddr);
 	while(1){
 	int n = recvfrom(udpSock, (char *)buffer, 1024,
-					0, (struct sockaddr *) &udpaddr,
+					MSG_WAITALL, (struct sockaddr *) &udpaddr,
 					&lenUdpaddr);
 
 	gettimeofday(&broadcastResponse[buffer[0]], NULL);
@@ -139,6 +147,7 @@ void * esperaCaixinha(void * nullParam){
 		n_caixa[1] = '\0'; 
 		BYTE* packet = encode(IDENTIFICACAO_CAIXA_COMANDO, n_caixa);
 		rn_caixinhas++;
+		pthread_create(&udpWaiter, NULL, teste, NULL);
 		send(new_socket, packet, byteArraySize(packet), 0);
 		for(int i = 0; i < N_CAIXINHAS; i++){
 			if(caixinhas[i].n == -1){
@@ -318,7 +327,6 @@ int main(int argc, char const* argv[])
 
 	
 	pthread_create(&waiter, NULL, esperaCaixinha, NULL);
-	pthread_create(&udpWaiter, NULL, teste, NULL);
 
 	udpSock = criaUdp();
 	
