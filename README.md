@@ -3,6 +3,10 @@
 ## Participantes do grupo
 Pedro Ribas Serras - 11234328
 
+## Link apresentacao
+
+https://docs.google.com/presentation/d/1Vrm48ENDmsNgo3ACVTBc8W4mwh7hpFbjkU_eNXZRjy8/edit?usp=sharing
+
 ## Sistema operacional
 
 PRETTY_NAME="Ubuntu 22.04.1 LTS"
@@ -18,6 +22,14 @@ BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
 PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
 UBUNTU_CODENAME=jammy
 
+## Compilador
+
+gcc (Ubuntu 11.2.0-19ubuntu1) 11.2.0
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
 ## Requesitos
 
 Como pedido para esse projeto, nenhuma biblioteca de SOCKET externa ao C foi utilizada, mas foi necessario utilizar de coisas externas para cuidar da parte da música. Para baixar os videos do yutube foi utilizada o youtube-dl e para rodar as música foi utilizado o vlc junto da libvlc, sendo que para compilar com a libvlc teve que ser utilizado o PKG-config. Todos os requisitos podem ser instalados utilizando o script de instalação deixado. Por fim também foi utilizado o pthreads para manipulação de threads.
@@ -26,6 +38,12 @@ Para rodar o script de instalação use o comando:
 
 ```
 sudo ./install.sh
+```
+
+Criar a pasta videos que vai receber os videos(ela deve ser criada na mesma pasta do objeto final do cliente e o nome precisa ser videos):
+
+```
+mkdir videos
 ```
 
 Para compilar o programa utilize o comando:
@@ -44,7 +62,7 @@ Para rodar o cliente utilize:
 ./client
 ```
 
-Importante dizer que o cliente só pode ser iniciado depois do servidor, caso contrário o servidor clinete é desligado.
+Importante dizer que o cliente só pode ser iniciado depois do servidor, caso contrário o servidor clinete é desligado. Ultima coisa é que deve-se rodar o cliente onde esta o arquivo e a pasta videos.
 
 ## Objetivos
 

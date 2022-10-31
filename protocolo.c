@@ -18,7 +18,7 @@
 #define	CONTROLE_DE_MULTIMIDIA_COMANDO			0x07		//Multimidia control
 #define	DOWNLOAD_MULTIMIDIA_COMANDO			    0x08		//Multimidia DOWNLOAD
 
-//COMANDOS												<Comando>	Categoria
+//OPCOES												<Comando>	Categoria
 
 #define	READYQ_C_OPCAO			"READYQ"				//0x03		Verificação de caixa
 #define	READYR_C_OPCAO			"READYR"				//0x03		Verificação de caixa
