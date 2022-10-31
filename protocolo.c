@@ -24,12 +24,8 @@
 #define	READYR_C_OPCAO			"READYR"				//0x03		Verificação de caixa
 #define	DOWNLOAD_C_OPCAO		"FILE"					//0x03		Verificação de caixa
 #define	DOWNLOAD_OK_C_OPCAO		"FILE OK"				//0x03		Verificação de caixa 	
-//Opcao textual de transferencia  4096					0x04		Envio arquivo
 #define	END_C_OPCAO				"END"					//0x05		Controle de envio de arquivo
 #define	CANCELED_C_OPCAO		"CANCELED"				//0x05		Controle de envio de arquivo
-#define	OK_C_OPCAO				"OK"					//0x06		Recebimento arquivo
-#define	FAILED_C_OPCAO			"FAILED"				//0x06		Recebimento arquivo
-#define	CANCELED_C_OPCAO		"CANCELED"				//0x06		Recebimento arquivo
 #define	PLAY_C_OPCAO			"PLAY"					//0x07		Multimidia control
 #define	PAUSE_C_OPCAO			"PAUSE"					//0x07		Multimidia control
 #define	NEXT_C_OPCAO			"NEXT"					//0x07		Multimidia control
@@ -48,9 +44,6 @@
 #define NEXT			4
 #define STOP			0
 
-//-----PROTOCOLO-----
-
-
 typedef struct
 {
 
@@ -68,12 +61,14 @@ typedef struct
 
 }Linha_de_comando;
 
+//CALCULA O TAMANHO DO BYTE ARRAY
 int byteArraySize(BYTE* byteArray){
 	int count = 0;
 	while(byteArray[count++] != '\0'){}
 	return count;
 }
 
+//PRINTA UM BYTE ARRAY
 void printByteArray(BYTE* byteArray){
     for(int i =0; i<byteArraySize(byteArray); i++){
         printf("%X", byteArray[i]);
@@ -81,6 +76,7 @@ void printByteArray(BYTE* byteArray){
     printf("\n");
 }
 
+//CODIFICA UM COMANDO E SUA OPCAO PARA O PACOTE QUE DEVE SER ENVIADO
 BYTE* encode(BYTE command, char* option){
 	BYTE* packet;
 	packet = (BYTE*) malloc(( 1 + strlen(option) + 1 ) * sizeof(BYTE));
@@ -92,6 +88,7 @@ BYTE* encode(BYTE command, char* option){
 	return packet;
 }
 
+//CODIFICA A PARTIR DA ESTRUTURA LINHA DE COMANDO
 BYTE* encodeLc(Linha_de_comando* lc){
 	BYTE* packet;
 	packet = (BYTE*) malloc(( 1 + strlen(lc->option) ) * sizeof(BYTE));
@@ -104,6 +101,7 @@ BYTE* encodeLc(Linha_de_comando* lc){
 	return packet;
 }
 
+//DECODIFICA O PACOTE PARA O FORMATO DE LINHA DE COMANDO
 Linha_de_comando* decode(BYTE* packet){
 	Linha_de_comando* lc;
 
@@ -120,18 +118,13 @@ Linha_de_comando* decode(BYTE* packet){
 	
 }
 
+//PRINTA UMA LINHA DE COMANDO
 void printLc(Linha_de_comando* lc){
 	printf("Command: %d\n",lc->command);
 	printf("Option: %s\n",lc->option);
 }
 
+//PRINTA UMA PACOTE
 void printPacket(BYTE* packet){
 	printLc(decode(packet));
-}
-
-void iniciaMusica(Musica* musica){
-	printf("Link do youbube da musica: ");
-	fflush(stdout);
-	scanf("%s", musica->name);
-	musica->estado = PAUSE;
 }

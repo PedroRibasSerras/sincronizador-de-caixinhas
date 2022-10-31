@@ -10,9 +10,11 @@ typedef struct{
 	int ready;
 }Caixinha;
 
+
 void *listenInput(void* caixinhaP);
 void enviaUltimoComandoDeMultimidia(int socket);
 
+//VARIAVEIS GLOBAIS
 Caixinha caixinhas[10];
 struct sockaddr_in address;
 int addrlen;
@@ -22,11 +24,12 @@ char buffer[1024];
 char ultimoComando[10];
 int perguntouSeEstaPronto;
 
+// FUNCAO QUE VERIFICA SE TODAS AS CAIXINHAS CONECTADAS RESPONDERAM QUE ESTAO PRONTAS
 int verificaSeCaixinhasEstaoProntas(){
 	for(int i = 0; i < N_CAIXINHAS; i ++){
 		if(caixinhas[i].n != -1){
 			if(caixinhas[i].ready == FALSE){
-				printf("nem todas as cixinhas prontas\n");
+				printf("Nem todas as cixinhas prontas\n");
 				return FALSE;
 			}
 		}
@@ -35,6 +38,7 @@ int verificaSeCaixinhasEstaoProntas(){
 	return TRUE;
 }
 
+//FUNCAO QUE ENVIA O ULTIMO COMANDO DE MULTIMIDIA PARA TODAS AS CAIXINHAS
 void enviaUltimoComandoDeMultimidiaParaTodasCaixinhas(){
 	for(int i = 0; i < N_CAIXINHAS; i ++){
 		if(caixinhas[i].n != -1){
@@ -43,6 +47,8 @@ void enviaUltimoComandoDeMultimidiaParaTodasCaixinhas(){
 	}
 }
 
+//FUNCAO FEITA PARA SER USADA POR UMA THREAD SEPARADA.
+//CONNECTA COM UMA CAIXINHA NOVA
 void * esperaCaixinha(void * nullParam){
 	while(1){
 		int new_socket;
@@ -54,7 +60,7 @@ void * esperaCaixinha(void * nullParam){
 				exit(EXIT_FAILURE);
 			}
 
-
+		//ADICIONA NA LIDAS DE CAIXINHAS
 		for(int i = 0; i < N_CAIXINHAS; i++){
 			if(caixinhas[i].n == -1){
 				caixinhas[i].n = i;
@@ -67,12 +73,15 @@ void * esperaCaixinha(void * nullParam){
 	
 }
 
+//ENVIA O ULTIMO COMANDO DE MUITIMIDIA QUE FOI DADO NO SERVER PARA UMA CAIXINHA
+//REPESENTADA PELO SOCKET. COMUCINACAO FEITA COM TCP
 void enviaUltimoComandoDeMultimidia(int socket){
 	BYTE* packet = encode(CONTROLE_DE_MULTIMIDIA_COMANDO, ultimoComando);
 	printPacket(packet);
 	send(socket, packet, byteArraySize(packet), 0);
 }
 
+//ENVIA UMA MENSAGEM PARA UMA CAIXINHA PERGUNTADO SE ELA ESTA PRONTA PARA TOCAR A MUSICA ATUAL.
 void perguntaSeEstaPronto(int socket){
 	
 	BYTE* packet = encode(VERIFICACAO_DE_CAIXA_COMANDO, READYQ_C_OPCAO);
@@ -80,11 +89,19 @@ void perguntaSeEstaPronto(int socket){
 	send(socket, packet, byteArraySize(packet), 0);
 }
 
+//FUNCAO FEITA PARA SER RODADA EM UM THREAD SEPARADA, SENDO 1 THREAD POR CAIXINHA
+//FICA ESPERANDO A CAIXINHA ENVIAR ALGUMA MENSAGEM
 void *listenInput(void* caixinhaP){
 	char buffer[1024];
 	Caixinha *caixinha = ((Caixinha*) caixinhaP);
+	int res = 0; 
     while(1){
-		read((*caixinha).socket, buffer, 1024);
+		res = read((*caixinha).socket, buffer, 1024);
+		if(res <= 0){
+            printf("Caixinha %d desconectou!\n", (*caixinha).n);
+            (*caixinha).n = -1; 
+			return NULL;
+        }
 		printPacket((BYTE*)buffer);
 		Linha_de_comando* lc =  decode((BYTE*)buffer);
 		switch(lc->command){
@@ -112,12 +129,12 @@ void *listenInput(void* caixinhaP){
 	return NULL;
 }
 
-void initControlMenu(Musica * musicaAtual){
+//PARTE "GRAFICA" DO CONTROLE DE MIDIA FEITA NO TERMINAL
+void initControlMenu(){
 
 	int option;
 	while(1){
-		//system("clear");
-		printf("----- Musica atual: %s -----\n", musicaAtual->name);
+		system("clear");
 		printf("1- Play\n");
 		printf("2- Pause\n");
 		printf("3- Anterior\n");
@@ -128,7 +145,6 @@ void initControlMenu(Musica * musicaAtual){
 		switch (option)
 		{
 			case PLAY:{
-				musicaAtual->estado = PLAY;
 				strcpy(ultimoComando,PLAY_C_OPCAO);
 				
 				if(perguntouSeEstaPronto == FALSE){
@@ -140,7 +156,6 @@ void initControlMenu(Musica * musicaAtual){
 				
 			}break;
 			case PAUSE:{
-				musicaAtual->estado = PAUSE;
 				strcpy(ultimoComando,PAUSE_C_OPCAO);
 				
 				if(perguntouSeEstaPronto == FALSE){
@@ -152,7 +167,6 @@ void initControlMenu(Musica * musicaAtual){
 				
 			}break;
 			case NEXT:{
-				musicaAtual->estado = PLAY;
 				strcpy(ultimoComando,NEXT_C_OPCAO);
 				for(int i = 0; i < N_CAIXINHAS; i ++){
 					if(caixinhas[i].n != -1)
@@ -162,7 +176,6 @@ void initControlMenu(Musica * musicaAtual){
 
 			}break;
 			case PREV:{
-				musicaAtual->estado = PLAY;
 				strcpy(ultimoComando,PREV_C_OPCAO);
 				for(int i = 0; i < N_CAIXINHAS; i ++){
 					if(caixinhas[i].n != -1)
@@ -172,7 +185,6 @@ void initControlMenu(Musica * musicaAtual){
 
 			}break;
 			case STOP:{
-				musicaAtual->estado = STOP;
 				return;
 			}break;
 		
@@ -184,68 +196,88 @@ void initControlMenu(Musica * musicaAtual){
 
 }
 
+//PERGUNTA PARA O USUARIO O LINK DA MUSICA
+void iniciaMusica(Musica* musica){
+	printf("Link do youbube da musica: ");
+	fflush(stdout);
+	scanf("%s", musica->name);
+	musica->estado = PAUSE;
+}
+
+//FUNCAO PRINCIPAL
 int main(int argc, char const* argv[])
 {
+	//INICIA TODAS AS CAIXINHAS
 	for(int i = 0; i< N_CAIXINHAS; i++){
 		caixinhas[i].n = -1;
 		caixinhas[i].ready = 0;
 	}
+
 	int opt = 1;
 	addrlen = sizeof(address);
+
+	//INICIA BUFFER VAZIO
 	char buffer[1024] = { 0 };
-	char* hello = "Hello from server";
+
+
 	perguntouSeEstaPronto = FALSE;
 
-	printf("Criando socket...");
+	//CRIA O DESCRITOR DO SCOKET
+	printf("Criando socket...\n");
 	// Creating socket file descriptor
 	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		perror("socket failed");
-		exit(EXIT_FAILURE);
+		printf("Erro na criacao do socket\n");
+		exit(-1);
 	}
 
-	printf("Configurando socket...");
-	// Forcefully attaching socket to the port 8080
+	//CONFIGURA O SOCKET
+	printf("Configurando socket...\n");
 	if (setsockopt(server_fd, SOL_SOCKET,
 				SO_REUSEADDR | SO_REUSEPORT, &opt,
 				sizeof(opt))) {
-		perror("setsockopt");
-		exit(EXIT_FAILURE);
+		printf("Erro ao configurar o socket!\n");
+		exit(-1);
 	}
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = INADDR_ANY;
-	address.sin_port = htons(PORT);
 
-	// Forcefully attaching socket to the port 8080
+	//VALORES DO ENDERECO
+	address.sin_family = AF_INET;//FALA QUE E IPV4
+	address.sin_addr.s_addr = INADDR_ANY;//QUALQUER IP PERMITIDO
+	address.sin_port = htons(PORT);//PORTA
+
+	//FAZ O BIND DO SOCKET PARA REALMENTE CRIAR O SOCKETS(FAZRE A LIGACAO DA PORTA COM O SOCKET)
 	printf("Ligando socket...\n");
 	if (bind(server_fd, (struct sockaddr*)&address,
 			sizeof(address))
 		< 0) {
-		perror("bind failed\n");
-		exit(EXIT_FAILURE);
+		perror("Erro no bind \n");
+		exit(-1);
 	}
 
+	//ESCUTA ENVIOS PARA O SOCKET
 	printf("Escutando socket...\n");
 	if (listen(server_fd, 3) < 0) {
-		perror("listen");
-		exit(EXIT_FAILURE);
+		printf("Erro ao iniciar o listen!\n");
+		exit(-1);
 	}
 
-	
+	//CRIACAO DA THREAD PARA ESPERA DE NOVAS CONEXOES
 	pthread_create(&waiter, NULL, esperaCaixinha, NULL);
 
 	
 
 	int estaLigado = TRUE;
 	Musica *musicaAtual;
-	if(!(musicaAtual = ((Musica *) malloc(sizeof(Musica *)))))
-					exit(1);
+
+
+	musicaAtual = (Musica *) malloc(sizeof(Musica *));
+	//LOOP PRINCIPAL
 	while(estaLigado){
 		int option;
 		printf("1- Escolher musica\n");
+		printf("2- Ir para controlador\n");
 		printf("0- Desligar server\n");
 		printf("Escolha uma das opcoes:");
-		fflush(stdout);
-		fflush(stdin);
+		fflush(NULL);
 		scanf("%d",&option);
 		switch (option)
 		{
@@ -262,13 +294,18 @@ int main(int argc, char const* argv[])
 					}
 				}
     			
-				initControlMenu(musicaAtual);
+				initControlMenu();
 			} break;
+			case 2:{
+				initControlMenu();
+			}break;
 			case DESLIGAR_SERVER:{
 				estaLigado = FALSE;
 			} break;
 			default:{
 				printf("Nao e uma opcao!!");
+				printf("Algo deu errado na escolha(Possivelmente não foi colocado um inteiro)!");
+				estaLigado = FALSE;
 			} break;
 		}
 	
@@ -277,15 +314,15 @@ int main(int argc, char const* argv[])
 		
 	}
 
+	//FECHANDO OS SOCKETS DAS CAIXINHAS
 	for(int i = 0; i< N_CAIXINHAS; i++){
 		if(caixinhas[i].n != -1){
 			close(caixinhas[i].socket);
 		}
 	}
-	// closing the connected socket
 	
 
-	// closing the listening socket
+	//PARANDO DE ESCUTAR OS SOCKETS
 	shutdown(server_fd, SHUT_RDWR);
 	return 0;
 }

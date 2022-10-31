@@ -1,5 +1,3 @@
-// Client side C/C++ program to demonstrate Socket
-// programming
 #include "protocolo.c"
 #include <pthread.h>
 #include <string.h>
@@ -8,7 +6,7 @@
 
 #define VIDEOS_PATH "./videos"
 
-
+//VARIAVEIS GLOBAIS - FEITO ASSIM PARA PODER USAR ENTRE AS THREADS SEM TER QUE FICAR PASSANDO POR PARAMETRO
 int sock;
 pthread_t reader, playListner, downloader;
 libvlc_instance_t *vlc;
@@ -18,6 +16,7 @@ int nDownloadsEmAndamento, readyRequest;
 Lista filaDeMusicas;
 int indexMusicaAtual;
 
+//FOI NECESSARIO CRIAR UM PROTOTYPE DE ALGUMAS FUNÇÕES QUE SE CHAMAM ENTRE SI
 void nextMusica(int);
 void prevMusic();
 void playMusica(MusicaPlayer *);
@@ -25,12 +24,12 @@ void pauseMusica(MusicaPlayer *);
 void handleReadyQuestion();
 void readyResponse();
 
-
+//FUNÇÃO QUE E FEITA PARA RODAR DENTRO DE UMA THREAD EM SEPARADO E FICA VERIFICANDO SE A MUSICA ESTASENDO TOCADA
+//QUANDO A MUSICA ACABAR, O SERVIDOR E AVISADO
 void *esperaAcabar(void* mp){
     sleep(1);
     while(libvlc_media_player_is_playing(mp)){
         sleep(1);
-        //printf("Esperando acabar\n");
     }
     BYTE* packet;
     if(*playerControllerState == PLAY){
@@ -53,6 +52,7 @@ void *esperaAcabar(void* mp){
     
 }
 
+//DA PLAY NA MUSICA
 void playMusica(MusicaPlayer * player){
     if(player == NULL)
         return;
@@ -66,6 +66,7 @@ void playMusica(MusicaPlayer * player){
     pthread_create(&playListner, NULL, esperaAcabar, player->mp);
 }
 
+//DA PAUSE NA MUSICA
 void pauseMusica(MusicaPlayer * player){
     if(player == NULL)
         return;
@@ -80,6 +81,7 @@ void pauseMusica(MusicaPlayer * player){
     }
 }
 
+//VAI PARA A PROXIMA MUSICA
 void nextMusica(int withPlay){
         MusicaPlayer *atual = getIndexLista(filaDeMusicas,indexMusicaAtual);
         *playerControllerState = NEXT;
@@ -101,6 +103,7 @@ void nextMusica(int withPlay){
         }
 }
 
+//VOLTA UMA MUSICA MUSICA
 void prevMusic(){
     MusicaPlayer *atual = getIndexLista(filaDeMusicas,indexMusicaAtual);
     if(atual == NULL){
@@ -124,6 +127,8 @@ void prevMusic(){
     }
 }
 
+//AVALIA SE A MUSICA ATUAL ESTA PRONTA PARA SER TOCADA, CAS0 ESTEIA AVISA O SERVIDOR.
+//CASO NAO ESTEJA, LEVANTA UMA FLAG PARA LEMBRAR DE AVISAR O SERVIDOR QUANDO ELA ESTIVER PRONTA
 void handleReadyQuestion(){
     MusicaPlayer *p = getIndexLista(filaDeMusicas,indexMusicaAtual);
     if(p != NULL){
@@ -141,6 +146,8 @@ void handleReadyQuestion(){
         readyRequest = TRUE;
     }
 }
+
+//FALA PRO SERVIDOR QUE A MUSICA ATUAL ESTA PRONTA
 void readyResponse(){
     printf("Ready response enviado!");
     BYTE* packet;
@@ -149,6 +156,7 @@ void readyResponse(){
     readyRequest = FALSE;
 }
 
+//MUDA O FIM DE UM STRING
 int strNewEnd(char* str, char endStrMarker){
     for(int i = 0; i<strlen(str); i++){
         if(str[i] == endStrMarker){
@@ -159,6 +167,8 @@ int strNewEnd(char* str, char endStrMarker){
     return -1;
 }
 
+
+//MUDA O INICIO DE UM STRING
 int strNewBegin(char** strP, char newBeginMarker){
     for(int i = 0; i<strlen(*strP); i++){
         if((*strP)[i] == newBeginMarker){
@@ -169,6 +179,9 @@ int strNewBegin(char** strP, char newBeginMarker){
     return -1;
 }
 
+//RODA EM UMA THREAD SEPARADA.
+//FAZ O DOWNLOAD DA MUSICA USANDO O YOUTUBE-DL
+//PREPARA O PLAYER DA MUSICA E ADICIONA NA LISTA
 void * downloadMusica(void * linkParam){
 
     char* link = (char *)linkParam;
@@ -276,15 +289,10 @@ void * downloadMusica(void * linkParam){
 }
 
 
-void *listenInput(void* buffer){
-    read(sock, buffer, 1024);
-}
-
-
-
+//FUNCAO PRINCIPAL
 int main(int argc, char const* argv[])
 {
-
+    //INICIA AS VARIAVEIS GLOBAIS E OUTRAS VARIAVEIS
     vlc = libvlc_new(0, NULL);
     sock = 0;
     indexMusicaAtual = 0;
@@ -295,37 +303,45 @@ int main(int argc, char const* argv[])
     nDownloadsEmAndamento = 0;
     readyRequest = FALSE;
 
+    //PREPARA O SOCKET PARA UTILIZAR O TCP
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Socket creation error \n");
+        printf("Erro na criacao do socket\n");
         return -1;
     }
-  
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
   
-    // Convert IPv4 and IPv6 addresses from text to binary
-    // form
+    //CONVERT O IPV4 PARA BINARIO
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)
         <= 0) {
         printf(
-            "\nInvalid address/ Address not supported \n");
+            "Erro na conversao do endereco\n");
         return -1;
     }
-  
+    
+
+    //CONECTA CLIENT E SERVIDOR USANDO O SOCKET CRIADO
     if ((client_fd
          = connect(sock, (struct sockaddr*)&serv_addr,
                    sizeof(serv_addr)))
         < 0) {
-        printf("\nConnection Failed \n");
+        printf("Conexao falhou!\n");
         return -1;
     }
 
     int sair = FALSE;
+    int res = 0;
+    //LOOP PRINCIPAL
     while (!sair)
     {
         printListaMP(filaDeMusicas);
         printf("\nMusica atula:%d\n\n",indexMusicaAtual);
-        read(sock, buffer, 1024);
+        res = read(sock, buffer, 1024);
+        if(res <= 0){
+            printf("Algo deu errado (possivelmente o servidor desconectou)!");
+            exit(0);
+        }
+        printf("res: %d\n", res);
         printPacket((BYTE*)buffer);
         Linha_de_comando* lc =  decode((BYTE*)buffer);
         
@@ -368,7 +384,7 @@ int main(int argc, char const* argv[])
     }
     
   
-    // closing the connected socket
+    //FECHA O SOCKET DO CLIENT
     close(client_fd);
     return 0;
 }
